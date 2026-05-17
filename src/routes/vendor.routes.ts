@@ -13,6 +13,7 @@ import {
   getAllVendors,
   getAssignedTechnicians,
   getVendorStatus,
+  getNearbyVendors,
 } from '../controllers/vendor.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { upload } from '../middleware/multer.middleware';
@@ -22,6 +23,9 @@ const router = express.Router();
 
 // Get all vendors endpoint
 router.get('/all', getAllVendors);
+
+// Get nearby vendors within a radius (no auth needed — used on service request creation screen)
+router.get('/nearby', getNearbyVendors);
 
 // Get assigned technicians for a user
 router.get('/assigned', getAssignedTechnicians);
