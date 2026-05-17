@@ -274,19 +274,15 @@ export const createCustomerPayment = async (req: AuthRequest, res: Response) => 
 
     console.log('✅ Authorization passed, fetching vendor...');
 
-    // Get vendor details
+    // Get vendor details (optional — not required to create the Cashfree payment session)
     console.log('=== Vendor Fetch ===');
     console.log('Vendor ID:', vendorId);
-    const vendor = await Vendor.findById(vendorId);
-    console.log('Vendor found:', !!vendor);
-    if (!vendor) {
-      console.error('Vendor not found for ID:', vendorId);
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor not found',
-      });
+    const vendor = await Vendor.findById(vendorId).catch(() => null);
+    if (vendor) {
+      console.log('✅ Vendor found:', vendor._id);
+    } else {
+      console.warn('⚠️  Vendor not found for ID:', vendorId, '— proceeding without vendor record');
     }
-    console.log('✅ Vendor found:', vendor._id);
 
     // Check if payment already exists for this service request (use ObjectId)
     console.log('=== Checking Existing Payment ===');
@@ -388,6 +384,7 @@ export const createCustomerPayment = async (req: AuthRequest, res: Response) => 
             message: 'Fresh payment link created',
             data: {
               transactionId: existingPayment._id,
+              orderId: existingPayment.gatewayOrderId,
               paymentLink: existingPayment.paymentLink,
               paymentSessionId: existingPayment.paymentSessionId,
               status: existingPayment.status,
@@ -401,6 +398,7 @@ export const createCustomerPayment = async (req: AuthRequest, res: Response) => 
           message: 'Payment already exists for this service request',
           data: {
             transactionId: existingPayment._id,
+            orderId: existingPayment.gatewayOrderId,
             paymentLink: existingPayment.paymentLink,
             paymentSessionId: existingPayment.paymentSessionId,
             status: existingPayment.status,
@@ -481,6 +479,7 @@ export const createCustomerPayment = async (req: AuthRequest, res: Response) => 
           message: 'Payment link generated for existing transaction',
           data: {
             transactionId: existingPayment._id,
+            orderId: existingPayment.gatewayOrderId,
             paymentLink: existingPayment.paymentLink,
             paymentSessionId: existingPayment.paymentSessionId,
             status: existingPayment.status,

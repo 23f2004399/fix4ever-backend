@@ -630,6 +630,15 @@ export const getMyServiceRequests = async (req: AuthRequest, res: Response) => {
       mainProblem: request.mainProblem,
       subProblem: request.subProblem,
       relationalBehaviors: request.relationalBehaviors || [],
+      calculatedPricing: request.calculatedPricing,
+      estimatedCost: request.estimatedCost,
+      vendorServiceCharge: request.vendorServiceCharge,
+      adminFinalPrice: request.adminFinalPrice,
+      paymentStatus: request.paymentStatus || 'pending',
+      serviceType: request.serviceType,
+      assignedVendor: request.assignedVendor
+        ? { _id: request.assignedVendor._id || request.assignedVendor }
+        : null,
       assignedTechnician: request.assignedTechnician
         ? {
             _id: request.assignedTechnician._id,
@@ -8729,4 +8738,47 @@ export const uploadTechnicianHandoverImages = async (req: AuthRequest, res: Resp
     message:
       'Technician/Vendor image uploads have been disabled. Only captain can upload device handover images.',
   });
+};
+
+// DEV/TEST ONLY — simulates vendor marking repair done and setting payment amount
+export const simulateReadyForPayment = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+
+    const serviceRequest = await ServiceRequest.findById(id);
+    if (!serviceRequest) {
+      return res.status(404).json({ success: false, message: 'Service request not found' });
+    }
+
+    // Pick amount: midpoint of relational behavior pricing, or fallback to 699
+    let testAmount = 699;
+    const rb = (serviceRequest as any).relationalBehaviors?.[0]?.pricing;
+    if (rb?.min_price && rb?.max_price) {
+      testAmount = Math.round((rb.min_price + rb.max_price) / 2);
+    }
+
+    (serviceRequest as any).status = 'Repair Done';
+    (serviceRequest as any).adminFinalPrice = testAmount;
+    (serviceRequest as any).paymentStatus = 'pending';
+
+    // Assign current user as mock vendor so PaymentForm has a vendorId to send
+    if (!(serviceRequest as any).assignedVendor && !(serviceRequest as any).assignedTechnician) {
+      (serviceRequest as any).assignedVendor = userId;
+    }
+
+    await serviceRequest.save({ validateBeforeSave: false });
+
+    return res.status(200).json({
+      success: true,
+      message: `Status set to Repair Done with test amount ₹${testAmount}`,
+      data: {
+        status: serviceRequest.status,
+        adminFinalPrice: testAmount,
+        assignedVendor: (serviceRequest as any).assignedVendor,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
 };
