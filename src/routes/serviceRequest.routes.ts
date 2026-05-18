@@ -58,6 +58,7 @@ import {
   getDropRequests,
   getCaptainAssignedJobs,
   setAdminFinalPrice,
+  simulateReadyForPayment,
   choosePostRepairDelivery,
   uploadCaptainHandoverImages,
   uploadTechnicianHandoverImages,
@@ -511,6 +512,7 @@ router.patch('/:id/update-knows-problem', authenticateToken, updateKnowsProblem)
 
 // Admin route to set final price when repair is done
 router.post('/:id/set-admin-final-price', authenticateToken, setAdminFinalPrice);
+router.post('/:id/simulate-payment-ready', authenticateToken, simulateReadyForPayment);
 
 // Download invoice PDF
 router.get('/:id/invoice', authenticateToken, downloadInvoice);

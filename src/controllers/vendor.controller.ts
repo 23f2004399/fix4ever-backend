@@ -2378,3 +2378,57 @@ export const getVendorStatus = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+export const getNearbyVendors = async (req: Request, res: Response) => {
+  try {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    const radiusKm = parseFloat((req.query.radius as string) || '15');
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ success: false, message: 'Valid lat and lng are required' });
+    }
+
+    const vendors = await Vendor.find({
+      onboardingStatus: 'Approved',
+      'pocInfo.latitude': { $exists: true, $ne: null },
+      'pocInfo.longitude': { $exists: true, $ne: null },
+    }).select('businessDetails.businessName pocInfo.fullName pocInfo.latitude pocInfo.longitude operationalDetails.workingHours');
+
+    const nearby = vendors
+      .filter(v => {
+        const vLat = v.pocInfo?.latitude;
+        const vLng = v.pocInfo?.longitude;
+        if (!Number.isFinite(vLat) || !Number.isFinite(vLng) || (vLat === 0 && vLng === 0)) return false;
+        return haversineKm(lat, lng, vLat!, vLng!) <= radiusKm;
+      })
+      .map(v => ({
+        _id: v._id,
+        name: (() => {
+          const raw = v.businessDetails?.businessName || v.pocInfo?.fullName || '';
+          if (!raw) return 'Fix4Ever';
+          const words = raw.trim().split(/\s+/);
+          const take = words.length >= 3 ? 2 : 1;
+          return words.slice(0, take).join(' ') + ' Fix4Ever';
+        })(),
+        latitude: v.pocInfo.latitude!,
+        longitude: v.pocInfo.longitude!,
+        workingHours: v.operationalDetails?.workingHours,
+      }));
+
+    return res.status(200).json({ success: true, vendors: nearby });
+  } catch (error: any) {
+    console.error('getNearbyVendors error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
