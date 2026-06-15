@@ -388,20 +388,27 @@ export const login = async (req: Request, res: Response) => {
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid password.' });
     }
-    const recentOtp = await OTP.find({ email }).sort({ createdAt: -1 }).limit(1);
 
-    if (recentOtp.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No OTP found. Please request a new one.',
-      });
-    }
+    // PLAY STORE BYPASS
+    if (email === 'webops@fix4ever.com' && otp === '123456') {
+      console.log('Play Store review bypass: Login successful for test account.');
+      // Skip DB check and fall through to token generation
+    } else {
+      const recentOtp = await OTP.find({ email }).sort({ createdAt: -1 }).limit(1);
 
-    if (recentOtp[0].otp !== otp) {
-      return res.status(400).json({
-        success: false,
-        message: 'This OTP is not valid.',
-      });
+      if (recentOtp.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No OTP found. Please request a new one.',
+        });
+      }
+
+      if (recentOtp[0].otp !== otp) {
+        return res.status(400).json({
+          success: false,
+          message: 'This OTP is not valid.',
+        });
+      }
     }
 
     const token = jwt.sign(
